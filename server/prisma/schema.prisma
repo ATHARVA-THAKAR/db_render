@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  donor
+  receiver
+  admin
+}
+
+enum ItemStatus {
+  pending_review
+  approved
+  rejected
+  matched
+  completed
+}
+
+enum MatchStatus {
+  suggested
+  approved
+  rejected
+  completed
+}
+
+enum ModerationTarget {
+  donation
+  request
+}
+
+enum ModerationVerdict {
+  approved
+  rejected
+  needs_review
+}
+
+model User {
+  id                String    @id @default(uuid())
+  name              String
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  role              Role
+  orgName           String?   @map("org_name")
+  phone             String?
+  preferredLanguage String    @default("en") @map("preferred_language")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  donations     Donation[]
+  requests      Request[]
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model Donation {
+  id            String     @id @default(uuid())
+  donorId       String     @map("donor_id")
+  donor         User       @relation(fields: [donorId], references: [id])
+  category      String
+  title         String
+  description   String
+  quantity      Int
+  photos        String[]
+  location      String?
+  region        String?
+  status        ItemStatus @default(pending_review)
+  flaggedReason String?    @map("flagged_reason")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  matches Match[]
+
+  @@map("donations")
+  @@index([status])
+  @@index([category])
+}
+
+model Request {
+  id            String     @id @default(uuid())
+  receiverId    String     @map("receiver_id")
+  receiver      User       @relation(fields: [receiverId], references: [id])
+  category      String
+  title         String
+  description   String
+  quantity      Int
+  urgency       Int        @default(1)
+  location      String?
+  region        String?
+  status        ItemStatus @default(pending_review)
+  flaggedReason String?    @map("flagged_reason")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  deletedAt     DateTime?  @map("deleted_at")
+
+  matches Match[]
+
+  @@map("requests")
+  @@index([status])
+  @@index([category])
+}
+
+model Match {
+  id             String      @id @default(uuid())
+  donationId     String      @map("donation_id")
+  donation       Donation    @relation(fields: [donationId], references: [id])
+  requestId      String      @map("request_id")
+  request        Request     @relation(fields: [requestId], references: [id])
+  score          Float
+  scoreBreakdown Json        @map("score_breakdown")
+  status         MatchStatus @default(suggested)
+  approvedBy     String?     @map("approved_by")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  deletedAt      DateTime?   @map("deleted_at")
+
+  @@map("matches")
+  @@index([status])
+}
+
+model ModerationLog {
+  id           String            @id @default(uuid())
+  targetType   ModerationTarget  @map("target_type")
+  targetId     String            @map("target_id")
+  verdict      ModerationVerdict
+  flaggedTerms String[]          @map("flagged_terms")
+  reviewedBy   String?           @map("reviewed_by")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  @@map("moderation_logs")
+}
+
+model Notification {
+  id      String   @id @default(uuid())
+  userId  String   @map("user_id")
+  user    User     @relation(fields: [userId], references: [id])
+  type    String
+  payload Json
+  channel String   @default("email")
+  sentAt  DateTime @default(now()) @map("sent_at")
+
+  @@map("notifications")
+}
