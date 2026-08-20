@@ -4,6 +4,6 @@ import "dotenv/config";
 const app = createApp();
 const port = process.env.PORT || 4000;
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
   console.log(`Donation Portal API listening on port ${port}`);
 });
